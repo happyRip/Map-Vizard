@@ -81,7 +81,7 @@ Font files are cached in the browser. They're also embedded in saved presets so 
 - **JSON**: an array of `{ "lat", "lon" }` (also `lng` / `latitude` / `longitude`) or `[lon, lat]` pairs. Or an object `{ "name", "points": [...], "stops": [{ "lat", "lon", "name" }] }`, which is the format **Save route** writes.
 - **GeoJSON**: `LineString` / `MultiLineString` for the route, `Point` features for stops.
 
-See `samples/` for examples. The sample is a 3.9 km walk in Wrocław, from Hala Targowa along the Odra and the old-town moat to Dworzec Świebodzki, routed along real footpaths.
+See `samples/` for examples. The sample is a 3.4 km walk in Wrocław, from Hala Targowa along the Odra and the old-town moat to Dworzec Świebodzki, traced along OSM streets and paths.
 
 ## Project layout
 

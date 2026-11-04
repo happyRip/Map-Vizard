@@ -196,7 +196,80 @@
     }
   }
 
-  function markersLayer(st, s, proj, W) {
+  // Length of segment a–b inside rect [x0, y0, x1, y1] (Liang–Barsky clip).
+  function clipLen(a, b, r) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    let t0 = 0, t1 = 1;
+    const p = [-dx, dx, -dy, dy], q = [a[0] - r[0], r[2] - a[0], a[1] - r[1], r[3] - a[1]];
+    for (let i = 0; i < 4; i++) {
+      if (p[i] === 0) { if (q[i] < 0) return 0; continue; }
+      const t = q[i] / p[i];
+      if (p[i] < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t);
+      if (t0 > t1) return 0;
+    }
+    return (t1 - t0) * Math.hypot(dx, dy);
+  }
+
+  const rectsOverlap = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  const rectCircle = (r, c) => {
+    const x = Math.max(r[0], Math.min(c[0], r[2])) - c[0], y = Math.max(r[1], Math.min(c[1], r[3])) - c[1];
+    return x * x + y * y < c[2] * c[2];
+  };
+
+  // Pick a spot around each stop dot where its name stays clear of the route line, other dots,
+  // earlier names and the page margin. Candidates sweep 16 directions at growing distances from
+  // the dot; any contact costs more than moving a few mm out, so the nearest clear spot wins.
+  // Each item offers layouts (one line, or wrapped onto two), each { lines, widths }.
+  function placeStopNames(items, route, clear, obstacles, page) {
+    const ANGLES = [0, 180, -30, 30, -150, 150, -60, 60, -120, 120, -90, 90, -15, 15, -165, 165];
+    const placed = [];
+    return items.map(({ x, y, R, size, layouts, own }) => {
+      // glyph box around the baseline set by dy 0.35em: cap top to descender
+      const up = size * 0.42, down = size * 0.3, lh = size * 1.1;
+      const gaps = [0.8, 1.5, 2.3, 3.2, 4.4, 6].map((g) => R + g * size * 0.4);
+      let best = null;
+      layouts.forEach((lay, li) => {
+        const w = Math.max(...lay.widths), h = up + down + lh * (lay.lines.length - 1);
+        gaps.forEach((d) => ANGLES.forEach((deg, ai) => {
+          const a = (deg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
+          const k = Math.max(Math.abs(ux), Math.abs(uy));
+          // box edge nearest the dot sits on the circle of radius d (corner on diagonals)
+          const cx = x + ux * d + (ux / k) * (w / 2), cy = y + uy * d + (uy / k) * (h / 2);
+          const box = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+          const pad = [box[0] - clear, box[1] - clear, box[2] + clear, box[3] + clear];
+          let hit = 0;
+          for (let i = 1; i < route.length; i++) hit += clipLen(route[i - 1], route[i], pad);
+          let cost = (d - gaps[0]) * 1.2 + ai * 0.02 + li * 1.5 + (hit ? 10 + hit * 4 : 0);
+          obstacles.forEach((c, j) => { if (j !== own && rectCircle(box, c)) cost += 30; });
+          placed.forEach((b) => { if (rectsOverlap(box, b)) cost += 30; });
+          if (box[0] < page[0] || box[1] < page[1] || box[2] > page[2] || box[3] > page[3]) cost += 200;
+          if (!best || cost < best.cost) best = { cost, box, lay, ux };
+        }));
+      });
+      placed.push(best.box);
+      const [x0, y0, x1] = best.box, { lay, ux } = best;
+      // lines hug the dot: right-aligned when left of it, centred above/below
+      const anchor = lay.lines.length < 2 || ux > 0.3 ? 'start' : ux < -0.3 ? 'end' : 'middle';
+      const tx = anchor === 'start' ? x0 : anchor === 'end' ? x1 : (x0 + x1) / 2;
+      return lay.lines.map((ln, i) => text(ln, tx, y0 + up - 0.35 * size + i * lh, { size, dy: 0.35, anchor })).join('');
+    }).join('');
+  }
+
+  // One-line layout, plus a two-line wrap at the space nearest the middle for multi-word names.
+  function nameLayouts(name, measure) {
+    const out = [{ lines: [name], widths: [measure(name)] }];
+    let cut = -1;
+    for (let i = 0; i < name.length; i++) {
+      if (name[i] === ' ' && (cut < 0 || Math.abs(i - name.length / 2) < Math.abs(cut - name.length / 2))) cut = i;
+    }
+    if (cut > 0) {
+      const lines = [name.slice(0, cut), name.slice(cut + 1)];
+      out.push({ lines, widths: lines.map(measure) });
+    }
+    return out;
+  }
+
+  function markersLayer(st, s, proj, W, H) {
     const M = s.markers, halo = haloColor(s);
     let out = '';
     if (st.route.length) {
@@ -211,19 +284,29 @@
       const fam = esc(fontFamily(s.labels));
       const R = M.stopSize / 2, nameSize = M.stopNameSize * MV.PT;
       let dots = '', names = '';
+      const items = [], obstacles = [];
+      if (st.route.length) {
+        obstacles.push([...proj.project(...st.route[0]), M.size / 2]);
+        obstacles.push([...proj.project(...st.route[st.route.length - 1]), M.size / 2]);
+      }
       st.stops.forEach((p, i) => {
         const [x, y] = proj.project(p.lat, p.lon);
+        obstacles.push([x, y, R + 0.3]);
         dots += `<circle cx="${fmt(x)}" cy="${fmt(y)}" r="${fmt(R)}" fill="${esc(M.stopColor)}" stroke="${esc(halo)}" stroke-width="0.4"/>`;
         dots += text(String(i + 1), x, y, { size: M.stopSize * 0.58, weight: 700, anchor: 'middle', dy: 0.35, attrs: ` fill="${esc(M.stopText)}"` });
         if (M.stopNames && p.name) {
-          // Name goes right of the dot; flip it left when it would run past the page margin.
-          const w = textWidth(p.name, nameSize, 400, fontFamily(s.labels), 0);
-          const flip = x + R + 1 + w > W - s.page.margin && x - R - 1 - w >= s.page.margin;
-          names += flip
-            ? text(p.name, x - R - 1, y, { size: nameSize, dy: 0.35, anchor: 'end' })
-            : text(p.name, x + R + 1, y, { size: nameSize, dy: 0.35 });
+          const measure = (str) => textWidth(str, nameSize, 400, fontFamily(s.labels), 0);
+          items.push({ x, y, R, size: nameSize, own: obstacles.length - 1, layouts: nameLayouts(p.name, measure) });
         }
       });
+      if (items.length) {
+        const r = s.route, m = s.page.margin;
+        // collide against the line as drawn (same simplify + smoothing as routeLayer)
+        const pts = st.route.length > 1 ? MV.geo.simplify(st.route.map((p) => proj.project(p[0], p[1])), r.simplify) : [];
+        const route = r.smooth ? MV.geo.smoothPoints(pts, 0.5) : pts;
+        const clear = r.width / 2 + (r.halo ? r.haloWidth : 0) + nameSize * 0.11 + 0.3;
+        names = placeStopNames(items, route, clear, obstacles, [m, m, W - m, H - m]);
+      }
       out += `<g font-family="${fam}" font-weight="700" text-anchor="middle">${dots}</g>`;
       if (names) {
         out += `<g font-family="${fam}" font-size="${fmt(nameSize)}" fill="${esc(s.labels.color)}" stroke="${esc(halo)}" stroke-width="${fmt(nameSize * 0.22)}" stroke-linejoin="round" paint-order="stroke">${names}</g>`;
@@ -330,7 +413,7 @@
       background: background(s, W, H, map, defs),
       basemap: s.basemap.show && st.basemap ? MV.basemap.render(st.basemap, proj, s.basemap, W, H, st.view) : '',
       route: routeLayer(st, s, proj),
-      markers: markersLayer(st, s, proj, W),
+      markers: markersLayer(st, s, proj, W, H),
       labels: labelsLayer(s, labels),
       extras: extrasLayer(st, s, labels, W, H, map),
     };

@@ -78,23 +78,44 @@
 
   // Catmull–Rom spline through the points, as cubic Béziers. Tangents are clamped to
   // the segment length so uneven spacing does not overshoot into loops.
-  function smoothPath(pts) {
-    if (pts.length < 3) return linePath(pts);
+  function bezierSegments(pts) {
     const tangent = (a, b, seg) => {
       let tx = (b[0] - a[0]) / 6, ty = (b[1] - a[1]) / 6;
       const len = Math.hypot(tx, ty), max = seg * 0.4;
       if (len > max && len > 0) { tx *= max / len; ty *= max / len; }
       return [tx, ty];
     };
-    let d = 'M' + fmt(pts[0][0]) + ' ' + fmt(pts[0][1]);
+    const out = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
       const seg = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
       const t1 = tangent(p0, p2, seg), t2 = tangent(p1, p3, seg);
-      d += 'C' + fmt(p1[0] + t1[0]) + ' ' + fmt(p1[1] + t1[1]) + ' ' +
-        fmt(p2[0] - t2[0]) + ' ' + fmt(p2[1] - t2[1]) + ' ' + fmt(p2[0]) + ' ' + fmt(p2[1]);
+      out.push([p1, [p1[0] + t1[0], p1[1] + t1[1]], [p2[0] - t2[0], p2[1] - t2[1]], p2, seg]);
+    }
+    return out;
+  }
+
+  function smoothPath(pts) {
+    if (pts.length < 3) return linePath(pts);
+    let d = 'M' + fmt(pts[0][0]) + ' ' + fmt(pts[0][1]);
+    for (const [, c1, c2, p2] of bezierSegments(pts)) {
+      d += 'C' + fmt(c1[0]) + ' ' + fmt(c1[1]) + ' ' + fmt(c2[0]) + ' ' + fmt(c2[1]) + ' ' + fmt(p2[0]) + ' ' + fmt(p2[1]);
     }
     return d;
+  }
+
+  // The same curve as smoothPath, flattened to a polyline (about one point per `step` units).
+  function smoothPoints(pts, step) {
+    if (pts.length < 3) return pts;
+    const out = [pts[0]];
+    for (const [p1, c1, c2, p2, seg] of bezierSegments(pts)) {
+      const n = Math.max(1, Math.min(16, Math.ceil(seg / step)));
+      for (let k = 1; k <= n; k++) {
+        const t = k / n, u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, e = t * t * t;
+        out.push([a * p1[0] + b * c1[0] + c * c2[0] + e * p2[0], a * p1[1] + b * c1[1] + c * c2[1] + e * p2[1]]);
+      }
+    }
+    return out;
   }
 
   // Centre + zoom that fit `points` (lat/lon) into `rect` (page mm) at the given rotation.
@@ -136,5 +157,5 @@
     return (f >= 5 ? 5 : f >= 2 ? 2 : 1) * p;
   }
 
-  MV.geo = { projection, haversine, length, segDist2, simplify, fmt, linePath, smoothPath, fit, bbox, niceNumber };
+  MV.geo = { projection, haversine, length, segDist2, simplify, fmt, linePath, smoothPath, smoothPoints, fit, bbox, niceNumber };
 })();

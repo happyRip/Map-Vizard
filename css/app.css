@@ -112,13 +112,14 @@ body { overflow: hidden; }
 
 /* "More options": everything that isn't needed for a first map */
 .more { border-top: 1px solid var(--pico-muted-border-color); }
-.more > summary { padding: 0.8rem 1.25rem; font-weight: 600; }
-.more[open] > summary { margin-bottom: 0; }
-.more-body { padding: 0 1.25rem 1rem; display: grid; gap: 0.25rem; }
-.group > summary { padding: 0.55rem 0; }
-.group[open] > summary { margin-bottom: 0.25rem; }
+.more > summary { padding: 0.8rem 1.25rem; font-weight: 700; }
+.more[open] > summary { margin-bottom: 0; border-bottom: 1px solid var(--pico-muted-border-color); }
+.more-body { padding: 0.6rem 1.25rem 1rem; display: grid; gap: 0.25rem; }
+/* an open group's title gets a hairline, so it can't be mistaken for a field */
+.group > summary { padding: 0.55rem 0; font-weight: 600; }
 .group[open] { padding-bottom: 0.75rem; }
-.group > :is(.fields, .btn-row, .hint, .font-slots, .field) { margin-top: 0.5rem; }
+.group[open] > summary { margin-bottom: 0; border-bottom: 1px solid var(--pico-muted-border-color); }
+.group > :is(.fields, .btn-row, .hint, .font-slots, .field) { margin-top: 0.6rem; }
 
 .step-nav {
   position: sticky; bottom: 0; margin-top: auto; display: flex; justify-content: space-between; gap: 0.5rem;

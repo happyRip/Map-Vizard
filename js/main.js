@@ -83,6 +83,7 @@
       `${pw}×${ph} px @ ${st.style.page.dpi} dpi`,
     ].filter(Boolean).join('  ·  ');
     $('#empty').hidden = st.route.length > 0 || st.stops.length > 0 || MV.tool === 'draw';
+    $('#load-map').hidden = !st.route.length || !!st.basemap || !st.style.basemap.show;
     document.querySelectorAll('.toolbar [data-action="fit"]').forEach((b) => b.classList.toggle('outline', !st.view.auto));
     let hint = HINTS[MV.tool];
     if (MV.tool === 'edit' && MV.tooManyHandles()) hint = 'Too many points to edit by hand. Use Start → More options → Simplify points first.';
@@ -200,7 +201,10 @@
     el.textContent = b
       ? `Added from ${{ omt: 'OpenStreetMap', osm: 'OpenStreetMap' }[b.source] || 'your GeoJSON file'}. Moved the map somewhere new? Update them.`
       : 'Draws the streets, rivers and parks around your route.';
-    if (!fetchCtl) document.querySelectorAll('[data-action="fetch-basemap"]').forEach((btn) => (btn.textContent = b ? 'Update streets' : 'Add streets'));
+    if (!fetchCtl) document.querySelectorAll('[data-action="fetch-basemap"]').forEach((btn) => {
+      btn.textContent = btn.dataset.idleLabel || (b ? 'Update streets' : 'Add streets');
+      btn.removeAttribute('aria-busy');
+    });
   }
 
   function viewBBox(padFrac) {
@@ -216,7 +220,10 @@
   async function fetchBasemap(btn) {
     if (fetchCtl) { fetchCtl.abort(); return; } // the button doubles as Cancel while fetching
     fetchCtl = new AbortController();
-    btn.textContent = 'Cancel';
+    document.querySelectorAll('[data-action="fetch-basemap"]').forEach((b) => {
+      b.textContent = 'Cancel';
+      b.setAttribute('aria-busy', 'true');
+    });
     try {
       const data = await MV.basemap.fetchBasemap(viewBBox(0.1), setBasemapStatus, fetchCtl.signal);
       if (!data.features.length) throw new Error('OpenStreetMap returned nothing for this area.');

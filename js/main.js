@@ -276,7 +276,9 @@
       const P = MV.geo.projection(st.view, W, H);
       const tol = Math.max(st.style.route.simplify, 0.3);
       const before = st.route.length;
-      const kept = MV.geo.simplify(st.route.map((p, i) => [...P.project(p[0], p[1]), i]), tol);
+      const pts = st.route.map((p, i) => [...P.project(p[0], p[1]), i]);
+      const pins = st.stops.map((p) => MV.geo.nearestVertex(pts, P.project(p.lat, p.lon)));
+      const kept = MV.geo.simplify(pts, tol, pins);
       st.route = kept.map((p) => st.route[p[2]]);
       MV.requestRender();
       MV.commit();

@@ -32,7 +32,7 @@ The route auto-fits the page and keeps clear of the title block. Panning or zoom
 
 Undo/redo: ⌘Z / ⇧⌘Z (Ctrl on Windows/Linux). **Reset look** (Look → More options → Save this look) restores the defaults.
 
-Raw GPS tracks have thousands of points. Run **Simplify points** (Start → More options) before editing by hand. The **Simplify** slider (Look → More options → Line) smooths jitter at render time without changing your data.
+Raw GPS tracks have thousands of points. Run **Simplify points** (Start → More options) before editing by hand. The **Simplify** slider (Look → More options → Line) smooths jitter at render time without changing your data, and always keeps the line on stops that sit on it. **Corner length** in the same group sets how far each corner is rounded.
 
 ## Fonts and outlined text (important for print)
 

@@ -161,11 +161,20 @@
       : '';
   }
 
-  function routeLayer(st, s, proj) {
-    if (st.route.length < 2) return '';
+  // The route as drawn, in page mm: simplified without losing the stops that sit on it, then rounded.
+  function routeLine(st, s, proj) {
+    if (st.route.length < 2) return [];
+    const r = s.route, M = s.markers;
+    const stops = M.stops ? st.stops.map((p) => proj.project(p.lat, p.lon)) : [];
+    const { pts, pins } = MV.geo.pinStops(st.route.map((p) => proj.project(p[0], p[1])), stops, M.stopSize);
+    const line = MV.geo.simplify(pts, r.simplify, pins);
+    return r.smooth ? MV.geo.roundCorners(line, r.cornerLength, pins.map((i) => pts[i])) : line;
+  }
+
+  function routeLayer(s, pts) {
+    if (pts.length < 2) return '';
     const r = s.route, halo = haloColor(s);
-    const pts = MV.geo.simplify(st.route.map((p) => proj.project(p[0], p[1])), r.simplify);
-    const d = r.smooth ? MV.geo.smoothPath(pts) : MV.geo.linePath(pts);
+    const d = MV.geo.linePath(pts);
     const cap = r.dash === 'dotted' ? 'round' : r.cap;
     const dash = r.dash === 'dashed' ? ` stroke-dasharray="${fmt(r.width * 2.5)} ${fmt(r.width * 1.8)}"`
       : r.dash === 'dotted' ? ` stroke-dasharray="0.01 ${fmt(r.width * 1.9)}"` : '';
@@ -223,9 +232,9 @@
   function placeStopNames(items, route, clear, obstacles, page) {
     const ANGLES = [0, 180, -30, 30, -150, 150, -60, 60, -120, 120, -90, 90, -15, 15, -165, 165];
     const placed = [];
-    return items.map(({ x, y, R, size, layouts, own }) => {
-      // glyph box around the baseline set by dy 0.35em: cap top to descender
-      const up = size * 0.42, down = size * 0.3, lh = size * 1.1;
+    return items.map(({ x, y, R, size, layouts }) => {
+      // glyph box around the baseline: accented capitals to descenders, plus the text's halo
+      const up = size * 0.8, down = size * 0.22, lh = size * 1.1, halo = size * 0.11;
       const gaps = [0.8, 1.5, 2.3, 3.2, 4.4, 6].map((g) => R + g * size * 0.4);
       let best = null;
       layouts.forEach((lay, li) => {
@@ -240,7 +249,8 @@
           let hit = 0;
           for (let i = 1; i < route.length; i++) hit += clipLen(route[i - 1], route[i], pad);
           let cost = (d - gaps[0]) * 1.2 + ai * 0.02 + li * 1.5 + (hit ? 10 + hit * 4 : 0);
-          obstacles.forEach((c, j) => { if (j !== own && rectCircle(box, c)) cost += 30; });
+          const ink = [box[0] - halo, box[1] - halo, box[2] + halo, box[3] + halo];
+          obstacles.forEach((c) => { if (rectCircle(ink, c)) cost += 30; });
           placed.forEach((b) => { if (rectsOverlap(box, b)) cost += 30; });
           if (box[0] < page[0] || box[1] < page[1] || box[2] > page[2] || box[3] > page[3]) cost += 200;
           if (!best || cost < best.cost) best = { cost, box, lay, ux };
@@ -269,7 +279,7 @@
     return out;
   }
 
-  function markersLayer(st, s, proj, W, H) {
+  function markersLayer(st, s, proj, W, H, line) {
     const M = s.markers, halo = haloColor(s);
     let out = '';
     if (st.route.length) {
@@ -296,16 +306,13 @@
         dots += text(String(i + 1), x, y, { size: M.stopSize * 0.58, weight: 700, anchor: 'middle', dy: 0.35, attrs: ` fill="${esc(M.stopText)}"` });
         if (M.stopNames && p.name) {
           const measure = (str) => textWidth(str, nameSize, 400, fontFamily(s.labels), 0);
-          items.push({ x, y, R, size: nameSize, own: obstacles.length - 1, layouts: nameLayouts(p.name, measure) });
+          items.push({ x, y, R, size: nameSize, layouts: nameLayouts(p.name, measure) });
         }
       });
       if (items.length) {
         const r = s.route, m = s.page.margin;
-        // collide against the line as drawn (same simplify + smoothing as routeLayer)
-        const pts = st.route.length > 1 ? MV.geo.simplify(st.route.map((p) => proj.project(p[0], p[1])), r.simplify) : [];
-        const route = r.smooth ? MV.geo.smoothPoints(pts, 0.5) : pts;
         const clear = r.width / 2 + (r.halo ? r.haloWidth : 0) + nameSize * 0.11 + 0.3;
-        names = placeStopNames(items, route, clear, obstacles, [m, m, W - m, H - m]);
+        names = placeStopNames(items, line, clear, obstacles, [m, m, W - m, H - m]);
       }
       out += `<g font-family="${fam}" font-weight="700" text-anchor="middle">${dots}</g>`;
       if (names) {
@@ -409,11 +416,12 @@
     const map = { x: inset, y: inset, w: W - 2 * inset, h: H - 2 * inset };
     const defs = [`<clipPath id="mv-clip"><rect x="${fmt(map.x)}" y="${fmt(map.y)}" width="${fmt(map.w)}" height="${fmt(map.h)}"/></clipPath>`];
 
+    const line = routeLine(st, s, proj);
     const layers = {
       background: background(s, W, H, map, defs),
       basemap: s.basemap.show && st.basemap ? MV.basemap.render(st.basemap, proj, s.basemap, W, H, st.view) : '',
-      route: routeLayer(st, s, proj),
-      markers: markersLayer(st, s, proj, W, H),
+      route: routeLayer(s, line),
+      markers: markersLayer(st, s, proj, W, H, line),
       labels: labelsLayer(s, labels),
       extras: extrasLayer(st, s, labels, W, H, map),
     };

@@ -55,7 +55,7 @@
     },
     route: {
       color: '#e4572e', width: 1.6, opacity: 1, dash: 'solid', cap: 'round', join: 'round',
-      simplify: 0.3, smooth: true, halo: true, haloMatch: true, haloColor: '#f3eee4', haloWidth: 0.9,
+      simplify: 0.3, smooth: true, cornerLength: 4, halo: true, haloMatch: true, haloColor: '#f3eee4', haloWidth: 0.9,
       arrows: false, arrowSpacing: 20,
     },
     markers: {

@@ -48,11 +48,15 @@
   }
 
   // Ramer–Douglas–Peucker on 2D points (extra array entries are carried along).
-  function simplify(pts, eps) {
+  // `pinned` lists indexes that must survive, so the line keeps passing through them.
+  function simplify(pts, eps, pinned = []) {
     if (!(eps > 0) || pts.length < 3) return pts;
     const keep = new Uint8Array(pts.length);
     keep[0] = keep[pts.length - 1] = 1;
-    const stack = [[0, pts.length - 1]], e2 = eps * eps;
+    pinned.forEach((i) => (keep[i] = 1));
+    const anchors = [];
+    keep.forEach((k, i) => { if (k) anchors.push(i); });
+    const stack = anchors.slice(1).map((b, i) => [anchors[i], b]), e2 = eps * eps;
     while (stack.length) {
       const [a, b] = stack.pop();
       let max = 0, idx = -1;
@@ -76,46 +80,95 @@
     return d;
   }
 
-  // Catmull–Rom spline through the points, as cubic Béziers. Tangents are clamped to
-  // the segment length so uneven spacing does not overshoot into loops.
-  function bezierSegments(pts) {
-    const tangent = (a, b, seg) => {
-      let tx = (b[0] - a[0]) / 6, ty = (b[1] - a[1]) / 6;
-      const len = Math.hypot(tx, ty), max = seg * 0.4;
-      if (len > max && len > 0) { tx *= max / len; ty *= max / len; }
-      return [tx, ty];
-    };
-    const out = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-      const seg = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
-      const t1 = tangent(p0, p2, seg), t2 = tangent(p1, p3, seg);
-      out.push([p1, [p1[0] + t1[0], p1[1] + t1[1]], [p2[0] - t2[0], p2[1] - t2[1]], p2, seg]);
-    }
-    return out;
+  function nearestVertex(pts, p) {
+    let best = 0, min = Infinity;
+    pts.forEach((q, i) => {
+      const d2 = (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2;
+      if (d2 < min) { min = d2; best = i; }
+    });
+    return best;
   }
 
-  function smoothPath(pts) {
-    if (pts.length < 3) return linePath(pts);
-    let d = 'M' + fmt(pts[0][0]) + ' ' + fmt(pts[0][1]);
-    for (const [, c1, c2, p2] of bezierSegments(pts)) {
-      d += 'C' + fmt(c1[0]) + ' ' + fmt(c1[1]) + ' ' + fmt(c2[0]) + ' ' + fmt(c2[1]) + ' ' + fmt(p2[0]) + ' ' + fmt(p2[1]);
-    }
-    return d;
-  }
-
-  // The same curve as smoothPath, flattened to a polyline (about one point per `step` units).
-  function smoothPoints(pts, step) {
-    if (pts.length < 3) return pts;
-    const out = [pts[0]];
-    for (const [p1, c1, c2, p2, seg] of bezierSegments(pts)) {
-      const n = Math.max(1, Math.min(16, Math.ceil(seg / step)));
-      for (let k = 1; k <= n; k++) {
-        const t = k / n, u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, e = t * t * t;
-        out.push([a * p1[0] + b * c1[0] + c * c2[0] + e * p2[0], a * p1[1] + b * c1[1] + c * c2[1] + e * p2[1]]);
+  // Adds the point of the line nearest each stop within `maxDist`.
+  // Returns the new line and the indexes of those points, for simplify() to keep.
+  function pinStops(pts, stops, maxDist) {
+    const hits = [];
+    stops.forEach((p) => {
+      let hit = null;
+      for (let i = 1; i < pts.length; i++) {
+        const { d2, t } = segDist2(p, pts[i - 1], pts[i]);
+        if (!hit || d2 < hit.d2) hit = { d2, t, i: i - 1 };
       }
+      if (hit && hit.d2 <= maxDist * maxDist) hits.push(hit);
+    });
+    hits.sort((a, b) => a.i - b.i || a.t - b.t);
+    const out = [], pins = [];
+    let h = 0;
+    pts.forEach((q, i) => {
+      out.push(q);
+      for (; h < hits.length && hits[h].i === i; h++) {
+        const { t } = hits[h], next = pts[i + 1];
+        if (t < 0.001) pins.push(out.length - 1);
+        else if (t > 0.999) pins.push(out.length); // the next vertex, pushed on the next pass
+        else {
+          out.push([q[0] + (next[0] - q[0]) * t, q[1] + (next[1] - q[1]) * t]);
+          pins.push(out.length - 1);
+        }
+      }
+    });
+    return { pts: out, pins };
+  }
+
+  // Rounds corners by averaging the line over a sliding window `len` long. Straight runs stay
+  // straight and the curve never leaves the corner it rounds, so it cannot overshoot. The window
+  // narrows towards the ends and towards `pinned` points, so the line still passes through them.
+  function roundCorners(pts, len, pinned = []) {
+    const pinSet = new Set(pinned), line = [];
+    pts.forEach((p) => {
+      const prev = line[line.length - 1];
+      if (prev && prev[0] === p[0] && prev[1] === p[1]) { if (pinSet.has(p)) pinSet.add(prev); } else line.push(p);
+    });
+    if (line.length < 3 || !(len > 0)) return line;
+
+    const n = line.length, cum = new Float64Array(n), gx = new Float64Array(n), gy = new Float64Array(n);
+    const pinAt = [];
+    for (let i = 0; i < n; i++) {
+      if (pinSet.has(line[i])) pinAt.push(i);
+      if (!i) continue;
+      const [ax, ay] = line[i - 1], [bx, by] = line[i], l = Math.hypot(bx - ax, by - ay);
+      cum[i] = cum[i - 1] + l;
+      gx[i] = gx[i - 1] + l * (ax + bx) / 2;
+      gy[i] = gy[i - 1] + l * (ay + by) / 2;
     }
-    return out;
+    const total = cum[n - 1], pinU = pinAt.map((i) => cum[i]);
+
+    // integral of the position along the line, up to arc length u
+    const integral = (u) => {
+      let lo = 0, hi = n - 2;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (cum[mid] <= u) lo = mid; else hi = mid - 1;
+      }
+      const t = u - cum[lo], l = cum[lo + 1] - cum[lo];
+      const dx = (line[lo + 1][0] - line[lo][0]) / l, dy = (line[lo + 1][1] - line[lo][1]) / l;
+      return [gx[lo] + t * line[lo][0] + (t * t * dx) / 2, gy[lo] + t * line[lo][1] + (t * t * dy) / 2,
+        line[lo][0] + t * dx, line[lo][1] + t * dy];
+    };
+
+    const step = Math.max(0.2, total / 20000);
+    const samples = pinU.concat(total);
+    for (let u = 0; u < total; u += step) samples.push(u);
+    samples.sort((a, b) => a - b);
+
+    const out = samples.map((u) => {
+      let h = Math.min(len / 2, u, total - u);
+      pinU.forEach((v) => { h = Math.min(h, Math.abs(u - v)); });
+      const b = integral(u);
+      if (h < 1e-6) return [b[2], b[3]];
+      const hi = integral(u + h), lo = integral(u - h);
+      return [(hi[0] - lo[0]) / (2 * h), (hi[1] - lo[1]) / (2 * h)];
+    });
+    return simplify(out, 0.02); // drop the samples on straight runs
   }
 
   // Centre + zoom that fit `points` (lat/lon) into `rect` (page mm) at the given rotation.
@@ -157,5 +210,5 @@
     return (f >= 5 ? 5 : f >= 2 ? 2 : 1) * p;
   }
 
-  MV.geo = { projection, haversine, length, segDist2, simplify, fmt, linePath, smoothPath, smoothPoints, fit, bbox, niceNumber };
+  MV.geo = { projection, haversine, length, segDist2, simplify, fmt, linePath, nearestVertex, pinStops, roundCorners, fit, bbox, niceNumber };
 })();

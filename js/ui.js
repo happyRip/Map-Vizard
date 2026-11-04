@@ -33,6 +33,7 @@
       { k: 'style.route.cap', t: 'seg', l: 'Ends', o: [['round', 'Round'], ['square', 'Square'], ['butt', 'Flat']] },
       { k: 'style.route.join', t: 'seg', l: 'Corners', o: [['round', 'Round'], ['miter', 'Sharp'], ['bevel', 'Bevel']] },
       { k: 'style.route.smooth', t: 'check', l: 'Smooth curves' },
+      { k: 'style.route.cornerLength', t: 'range', l: 'Corner length', min: 0.5, max: 30, step: 0.5, u: 'mm', tip: 'Length of line each corner is rounded over. Short keeps corners nearly square; long gives wide, sweeping bends.', when: (s) => s.style.route.smooth },
       { k: 'style.route.simplify', t: 'range', l: 'Simplify', min: 0, max: 2, step: 0.05, u: 'mm', hint: 'Irons out GPS jitter smaller than this on the page.' },
       { k: 'style.route.halo', t: 'check', l: 'Halo (knock-out outline)' },
       { k: 'style.route.haloWidth', t: 'range', l: 'Halo width', min: 0.1, max: 4, step: 0.1, u: 'mm', when: (s) => s.style.route.halo },

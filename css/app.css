@@ -68,7 +68,7 @@ body { overflow: hidden; }
 
 /* ---------- sidebar ---------- */
 .sidebar {
-  display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain;
   border-right: 1px solid var(--pico-muted-border-color);
 }
 .sidebar :is(input, select, textarea, button, label, details) { margin-bottom: 0; }

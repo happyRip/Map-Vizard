@@ -201,8 +201,11 @@
         <svg id="overlay" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 210">
           <g id="O-layer" fill="#ffffff" stroke="#2563eb"></g>
         </svg>
+        <div class="load-map" id="load-map" role="group" hidden>
+          <button type="button" data-action="fetch-basemap" data-idle-label="Load map for this area" title="Downloads streets, water and parks for the visible area (OpenStreetMap data via OpenFreeMap vector tiles)">Load map for this area</button>
+          <button type="button" data-action="dismiss-load-map" aria-label="Close" title="Close">×</button>
+        </div>
       </div>
-      <button type="button" id="load-map" class="load-map" data-action="fetch-basemap" data-idle-label="Load map for this area" title="Downloads streets, water and parks for the visible area (OpenStreetMap data via OpenFreeMap vector tiles)" hidden>Load map for this area</button>
       <div class="empty" id="empty">
         <article class="empty-card">
           <strong>Drop a route file here</strong>

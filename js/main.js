@@ -65,6 +65,18 @@
     MV.emit('rendered', scene);
   }
 
+  // The on-page "Load map" prompt stays closed until the route or the map changes.
+  const LOAD_MAP_KEY = 'mapvizard:load-map-dismissed';
+  function loadMapDismissed() {
+    try { return localStorage.getItem(LOAD_MAP_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setLoadMapDismissed(on) {
+    try {
+      if (on) localStorage.setItem(LOAD_MAP_KEY, '1');
+      else localStorage.removeItem(LOAD_MAP_KEY);
+    } catch (e) { /* ignore */ }
+  }
+
   const HINTS = {
     pan: 'Drag to pan · scroll to zoom · F to fit',
     edit: 'Drag points to move · click the line to add a point · Alt-click or double-click a point to delete',
@@ -83,7 +95,7 @@
       `${pw}×${ph} px @ ${st.style.page.dpi} dpi`,
     ].filter(Boolean).join('  ·  ');
     $('#empty').hidden = st.route.length > 0 || st.stops.length > 0 || MV.tool === 'draw';
-    $('#load-map').hidden = !st.route.length || !!st.basemap || !st.style.basemap.show;
+    $('#load-map').hidden = !st.route.length || !!st.basemap || loadMapDismissed();
     document.querySelectorAll('.toolbar [data-action="fit"]').forEach((b) => b.classList.toggle('outline', !st.view.auto));
     let hint = HINTS[MV.tool];
     if (MV.tool === 'edit' && MV.tooManyHandles()) hint = 'Too many points to edit by hand. Use Start → More options → Simplify points first.';
@@ -115,6 +127,7 @@
     const t = st.content.title.trim();
     if (st.routeName && (!t || MV.isDefaultTitle(t) || t === prevName)) st.content.title = st.routeName;
     st.view.auto = true;
+    setLoadMapDismissed(false);
     const rb = MV.geo.bbox(st.route.concat(st.stops.map((p) => [p.lat, p.lon])));
     if (st.basemap && !bboxOverlaps(st.basemap.bbox, rb)) {
       st.basemap = null;
@@ -170,6 +183,7 @@
       MV.emit('fonts');
     }
     MV.applySnapshot(d);
+    setLoadMapDismissed(false);
     st.basemap = d.basemap && Array.isArray(d.basemap.features) ? d.basemap : null;
     if (!MV.persistBasemap()) MV.toast('Basemap loaded, but too large to keep in this browser after a reload.', 'warn');
     setBasemapStatus();
@@ -299,6 +313,7 @@
       st.route = [];
       st.stops = [];
       st.routeName = '';
+      setLoadMapDismissed(false);
       MV.renderStops();
       MV.requestRender();
       MV.commit();
@@ -333,8 +348,13 @@
     },
     'fetch-basemap': fetchBasemap,
     'import-basemap'() { $('#file-basemap').click(); },
+    'dismiss-load-map'() {
+      setLoadMapDismissed(true);
+      MV.requestRender();
+    },
     'clear-basemap'() {
       st.basemap = null;
+      setLoadMapDismissed(false);
       MV.persistBasemap();
       setBasemapStatus();
       MV.requestRender();

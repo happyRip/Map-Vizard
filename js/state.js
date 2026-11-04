@@ -91,7 +91,7 @@
       },
     },
     riso: {
-      label: 'Riso pink + blue',
+      label: 'Riso',
       style: {
         background: { color: '#f6f1e7' },
         basemap: { roads: '#9cc3e0', railColor: '#9cc3e0', waterColor: '#cfe2f0', parkColor: '#e5edf0' },
@@ -124,7 +124,7 @@
       },
     },
     abstract: {
-      label: 'Abstract (no basemap)',
+      label: 'Abstract',
       style: {
         background: { color: '#efebe3', pattern: 'dots', patternColor: '#c9c1b2', patternSpacing: 4 },
         basemap: { show: false },

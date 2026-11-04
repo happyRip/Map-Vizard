@@ -1,152 +1,189 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Map Vizard — route maps for zines</title>
+  <link rel="stylesheet" href="css/vendor/pico.min.css">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
-    <header class="brand">
+    <hgroup class="brand">
       <h1>Map Vizard</h1>
-      <p>Walking routes, set for print.</p>
-    </header>
+      <p>Turn a walk into a printable map.</p>
+    </hgroup>
 
-    <details class="panel" data-panel="route" open>
-      <summary>Route</summary>
-      <div class="panel-body">
-        <label class="drop">
-          <input type="file" id="file-route" accept=".gpx,.kml,.json,.geojson" hidden>
-          <strong>Drop a GPX, KML or JSON file</strong>
-          <span>or click to browse</span>
-        </label>
-        <div class="route-info" id="route-info"></div>
-        <div class="btn-row">
-          <button type="button" data-action="sample">Load sample</button>
-          <button type="button" data-action="reverse" title="Swap start and finish">Reverse</button>
-          <button type="button" data-action="bake" title="Permanently drop redundant points (makes hand editing practical)">Simplify points</button>
-          <button type="button" data-action="save-route" title="Download the route and stops as JSON">Save route</button>
-          <button type="button" data-action="clear-route" class="danger">Clear</button>
+    <nav class="steps" role="tablist" aria-label="Steps">
+      <button type="button" role="tab" data-step="route" id="tab-route" aria-controls="step-route"><span class="step-num">1</span><span class="step-name">Start</span></button>
+      <button type="button" role="tab" data-step="look" id="tab-look" aria-controls="step-look"><span class="step-num">2</span><span class="step-name">Look</span></button>
+      <button type="button" role="tab" data-step="words" id="tab-words" aria-controls="step-words"><span class="step-num">3</span><span class="step-name">Words</span></button>
+      <button type="button" role="tab" data-step="print" id="tab-print" aria-controls="step-print"><span class="step-num">4</span><span class="step-name">Export</span></button>
+    </nav>
+
+    <section class="step" id="step-route" role="tabpanel" aria-labelledby="tab-route" data-step-panel="route">
+      <div class="step-body">
+        <h2>Page</h2>
+        <div class="fields" data-fields="pageSetup"></div>
+        <div class="when-empty">
+          <h2>Route</h2>
+          <label class="drop">
+            <input type="file" id="file-route" accept=".gpx,.kml,.json,.geojson" hidden>
+            <strong>Choose a GPX, KML or JSON file</strong>
+            <span>or drop it anywhere on the window</span>
+          </label>
+          <button type="button" data-action="sample" class="secondary outline wide">Try the sample walk</button>
+          <div class="or">No file? Draw it by hand.</div>
+          <form role="search" id="place-form">
+            <input type="search" id="place-q" placeholder="Neighbourhood or city" aria-label="Place to centre on">
+            <button type="submit" class="secondary">Find</button>
+          </form>
+          <p class="hint">Find the place, add streets in step 2, then pick <b>Draw</b> above the map and click along your route.</p>
         </div>
-        <div class="subhead">Draw from scratch</div>
-        <p class="hint">Centre the page on a place, fetch streets (Basemap panel), then pick <b>Draw</b> (D) and click along your route.</p>
-        <form class="inline-form" id="place-form">
-          <input type="search" id="place-q" placeholder="Neighbourhood, city…" aria-label="Place to centre on">
-          <button type="submit">Go</button>
-        </form>
-      </div>
-    </details>
-
-    <details class="panel" data-panel="page" open>
-      <summary>Page &amp; framing</summary>
-      <div class="panel-body">
-        <div class="fields" data-fields="page"></div>
-        <div class="btn-row"><button type="button" data-action="fit">Fit route to page</button></div>
-      </div>
-    </details>
-
-    <details class="panel" data-panel="line" open>
-      <summary>Route line</summary>
-      <div class="panel-body"><div class="fields" data-fields="line"></div></div>
-    </details>
-
-    <details class="panel" data-panel="markers">
-      <summary>Markers &amp; stops</summary>
-      <div class="panel-body">
-        <div class="fields" data-fields="markers"></div>
-        <div class="subhead">Stops</div>
-        <div id="stops-list" class="stops"></div>
-        <p class="hint">GPX waypoints and KML/GeoJSON points import as stops.</p>
-      </div>
-    </details>
-
-    <details class="panel" data-panel="labels" open>
-      <summary>Labels</summary>
-      <div class="panel-body">
-        <div class="fields" data-fields="content"></div>
-        <div class="subhead">Typography</div>
-        <div class="fields" data-fields="labels"></div>
-        <div class="subhead">Font file</div>
-        <div id="font-slots" class="font-slots"></div>
-        <p class="hint" id="font-status"></p>
-      </div>
-    </details>
-
-    <details class="panel" data-panel="background">
-      <summary>Background</summary>
-      <div class="panel-body"><div class="fields" data-fields="background"></div></div>
-    </details>
-
-    <details class="panel" data-panel="basemap">
-      <summary>Basemap</summary>
-      <div class="panel-body">
-        <div class="btn-row">
-          <button type="button" data-action="fetch-basemap" class="primary" title="Downloads streets, water and parks for the visible area (OpenStreetMap data via OpenFreeMap vector tiles)">Fetch streets for this view</button>
-          <button type="button" data-action="import-basemap" title="Use your own GeoJSON lines/polygons">Import GeoJSON…</button>
-          <button type="button" data-action="clear-basemap" class="danger">Remove</button>
+        <div class="when-loaded">
+          <h2>Route</h2>
+          <div class="route-info" id="route-info"></div>
+          <h3>Stops</h3>
+          <div id="stops-list" class="stops"></div>
+          <div class="fields" data-fields="stops"></div>
         </div>
-        <p class="hint" id="basemap-status"></p>
-        <div class="fields" data-fields="basemap"></div>
       </div>
-    </details>
-
-    <details class="panel" data-panel="extras">
-      <summary>Frame &amp; extras</summary>
-      <div class="panel-body"><div class="fields" data-fields="extras"></div></div>
-    </details>
-
-    <details class="panel" data-panel="presets" open>
-      <summary>House style</summary>
-      <div class="panel-body">
-        <div class="inline-form">
-          <select id="theme-select" aria-label="Built-in style"></select>
-          <button type="button" data-action="apply-theme">Apply</button>
+      <details class="more" data-more="route">
+        <summary>More options</summary>
+        <div class="more-body">
+          <details class="group">
+            <summary>Margins and framing</summary>
+            <div class="fields" data-fields="page"></div>
+            <div class="btn-row"><button class="secondary outline" type="button" data-action="fit">Fit route to page</button></div>
+          </details>
+          <div class="when-loaded">
+          <div class="btn-row">
+            <button class="secondary outline" type="button" data-action="reverse" title="Swap start and finish">Reverse direction</button>
+            <button class="secondary outline" type="button" data-action="bake" title="Permanently drop redundant points (makes hand editing practical)">Simplify points</button>
+            <button class="secondary outline" type="button" data-action="save-route" title="Download the route and stops as JSON">Save route file</button>
+            <button type="button" data-action="clear-route" class="secondary outline danger">Remove route</button>
+          </div>
+          <p class="hint">Simplify points before editing a GPS track by hand. GPX waypoints and KML/GeoJSON points import as stops.</p>
+          </div>
         </div>
-        <div class="btn-row">
-          <button type="button" data-action="save-preset" title="Download colours, line weights, typography and page setup as JSON">Save preset…</button>
-          <button type="button" data-action="load-preset">Load preset…</button>
-          <button type="button" data-action="reset-style" class="danger">Reset styles</button>
+      </details>
+    </section>
+
+    <section class="step" id="step-look" role="tabpanel" aria-labelledby="tab-look" data-step-panel="look" hidden>
+      <div class="step-body">
+        <h2>Pick a look</h2>
+        <div class="themes" id="themes" role="radiogroup" aria-label="House style"></div>
+        <div class="streets">
+          <div class="streets-head">
+            <h3>Streets</h3>
+            <button type="button" data-action="fetch-basemap" class="small" title="Downloads streets, water and parks for the visible area (OpenStreetMap data via OpenFreeMap vector tiles)">Add streets</button>
+          </div>
+          <p class="hint" id="basemap-status"></p>
+          <div class="fields" data-fields="lookStreets"></div>
         </div>
-        <p class="hint">Settings autosave in this browser. Save a preset file to keep every issue of the zine consistent — you can also drop a preset file onto the window.</p>
+        <h3>Route line</h3>
+        <div class="fields" data-fields="look"></div>
       </div>
-    </details>
-
-    <details class="panel" data-panel="project" open>
-      <summary>Project file</summary>
-      <div class="panel-body">
-        <div class="btn-row">
-          <button type="button" data-action="save-project" title="Download all settings, text, route, stops and view as one file (⌘S)">Save project…</button>
-          <button type="button" data-action="open-project" title="Open a project file (⌘O)">Open project…</button>
+      <details class="more" data-more="look">
+        <summary>More options</summary>
+        <div class="more-body">
+          <details class="group"><summary>Line</summary><div class="fields" data-fields="line"></div></details>
+          <details class="group"><summary>Start, finish and stops</summary><div class="fields" data-fields="markers"></div></details>
+          <details class="group"><summary>Background</summary><div class="fields" data-fields="background"></div></details>
+          <details class="group">
+            <summary>Streets</summary>
+            <div class="fields" data-fields="basemap"></div>
+            <div class="btn-row">
+              <button class="secondary outline" type="button" data-action="import-basemap" title="Use your own GeoJSON lines/polygons">Use my own GeoJSON…</button>
+              <button type="button" data-action="clear-basemap" class="secondary outline danger">Remove streets</button>
+            </div>
+          </details>
+          <details class="group"><summary>Frame, north arrow and scale</summary><div class="fields" data-fields="extras"></div></details>
+          <details class="group">
+            <summary>Save this look</summary>
+            <div class="btn-row">
+              <button class="secondary outline" type="button" data-action="save-preset" title="Download colours, line weights, typography and page setup as JSON">Save look…</button>
+              <button class="secondary outline" type="button" data-action="load-preset">Open look…</button>
+              <button type="button" data-action="reset-style" class="secondary outline danger">Reset look</button>
+            </div>
+            <p class="hint">Save a look file to keep every issue of your zine consistent. You can also drop it onto the window.</p>
+          </details>
         </div>
-        <div class="field field-check"><input type="checkbox" id="project-basemap" checked><label for="project-basemap">Include basemap streets</label></div>
-        <p class="hint">One file with everything: all settings, title and labels, route, stops, framing, loaded font files and (optionally) the fetched streets. Open it, or drop it on the window, to carry on exactly where you left off.</p>
+      </details>
+    </section>
+
+    <section class="step" id="step-words" role="tabpanel" aria-labelledby="tab-words" data-step-panel="words" hidden>
+      <div class="step-body">
+        <h2>Name your map</h2>
+        <div class="fields" data-fields="words"></div>
       </div>
-    </details>
+      <details class="more" data-more="words">
+        <summary>More options</summary>
+        <div class="more-body">
+          <details class="group"><summary>Type</summary><div class="fields" data-fields="type"></div></details>
+          <details class="group">
+            <summary>Your own font file</summary>
+            <div id="font-slots" class="font-slots"></div>
+            <p class="hint" id="font-status"></p>
+          </details>
+          <details class="group"><summary>Language and units</summary><div class="fields" data-fields="locale"></div></details>
+        </div>
+      </details>
+    </section>
+
+    <section class="step" id="step-print" role="tabpanel" aria-labelledby="tab-print" data-step-panel="print" hidden>
+      <div class="step-body">
+        <h2>Export</h2>
+        <div class="fields" data-fields="print"></div>
+        <div class="downloads">
+          <button type="button" data-action="export-png">Export PNG</button>
+          <button class="secondary outline" type="button" data-action="export-svg">Export SVG</button>
+        </div>
+        <p class="hint">PNG for printing as is. SVG to place in InDesign, Affinity or Illustrator.</p>
+      </div>
+      <details class="more" data-more="print">
+        <summary>More options</summary>
+        <div class="more-body">
+          <details class="group">
+            <summary>Project file</summary>
+            <div class="btn-row">
+              <button class="secondary outline" type="button" data-action="save-project" title="Download all settings, text, route, stops and view as one file (⌘S)">Save project…</button>
+              <button class="secondary outline" type="button" data-action="open-project" title="Open a project file (⌘O)">Open project…</button>
+            </div>
+            <div class="field field-check"><input type="checkbox" id="project-basemap" checked><label for="project-basemap">Include streets</label></div>
+            <p class="hint">One file with everything, so you can carry on later or on another computer. Your work also autosaves in this browser.</p>
+          </details>
+        </div>
+      </details>
+    </section>
+
+    <footer class="step-nav">
+      <button type="button" data-step-go="-1" class="secondary outline">Back</button>
+      <button type="button" data-step-go="1" id="step-next">Next</button>
+    </footer>
   </aside>
 
   <main class="workspace">
     <div class="toolbar">
       <div class="seg tools" role="group" aria-label="Tool">
-        <button type="button" data-tool="pan" title="Pan & zoom (V)">Pan</button>
-        <button type="button" data-tool="edit" title="Edit points (E)">Edit</button>
-        <button type="button" data-tool="draw" title="Draw route (D)">Draw</button>
-        <button type="button" data-tool="stops" title="Place stops (S)">Stops</button>
+        <button class="secondary outline" type="button" data-tool="pan" title="Pan & zoom (V)">Pan</button>
+        <button class="secondary outline" type="button" data-tool="edit" title="Drag route points (E)">Edit</button>
+        <button class="secondary outline" type="button" data-tool="draw" title="Draw route (D)">Draw</button>
+        <button class="secondary outline" type="button" data-tool="stops" title="Click to place numbered stops (S)">Stops</button>
       </div>
       <div class="group">
-        <button type="button" data-action="fit" title="Fit route to page (F)">Fit</button>
-        <button type="button" data-action="zoom-out" title="Zoom out (−)" aria-label="Zoom out">−</button>
-        <button type="button" data-action="zoom-in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+        <button class="secondary outline" type="button" data-action="fit" title="Fit route to page (F)">Fit</button>
+        <button class="secondary outline" type="button" data-action="zoom-out" title="Zoom out (−)" aria-label="Zoom out">−</button>
+        <button class="secondary outline" type="button" data-action="zoom-in" title="Zoom in (+)" aria-label="Zoom in">+</button>
       </div>
       <div class="group">
-        <button type="button" data-action="undo" title="Undo (⌘Z)">Undo</button>
-        <button type="button" data-action="redo" title="Redo (⇧⌘Z)">Redo</button>
+        <button class="secondary outline" type="button" data-action="undo" title="Undo (⌘Z)">Undo</button>
+        <button class="secondary outline" type="button" data-action="redo" title="Redo (⇧⌘Z)">Redo</button>
       </div>
       <div class="spacer"></div>
       <div class="group">
-        <button type="button" data-action="export-svg" class="primary">Export SVG</button>
-        <button type="button" data-action="export-png" class="primary">Export PNG</button>
+        <button type="button" data-step-to="print">Export</button>
       </div>
     </div>
 
@@ -166,11 +203,11 @@
         </svg>
       </div>
       <div class="empty" id="empty">
-        <div class="empty-card">
-          <strong>Drop a route to begin</strong>
-          <p>GPX, KML or JSON, or switch to <b>Draw</b> and click on the page.</p>
-          <button type="button" data-action="sample" class="primary">Load the sample route</button>
-        </div>
+        <article class="empty-card">
+          <strong>Drop a route file here</strong>
+          <p>GPX, KML or JSON from your phone or watch. Or try it out first.</p>
+          <button type="button" data-action="sample">Try the sample walk</button>
+        </article>
       </div>
     </div>
 

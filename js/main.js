@@ -83,15 +83,15 @@
       `${pw}×${ph} px @ ${st.style.page.dpi} dpi`,
     ].filter(Boolean).join('  ·  ');
     $('#empty').hidden = st.route.length > 0 || st.stops.length > 0 || MV.tool === 'draw';
-    document.querySelector('[data-action="fit"]').classList.toggle('on', st.view.auto);
+    document.querySelectorAll('.toolbar [data-action="fit"]').forEach((b) => b.classList.toggle('outline', !st.view.auto));
     let hint = HINTS[MV.tool];
-    if (MV.tool === 'edit' && MV.tooManyHandles()) hint = 'Too many points to edit by hand — use “Simplify points” in the Route panel first.';
+    if (MV.tool === 'edit' && MV.tooManyHandles()) hint = 'Too many points to edit by hand. Use Start → More options → Simplify points first.';
     $('#hint').textContent = hint;
   }
 
   MV.setTool = function (tool) {
     MV.tool = tool;
-    document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === tool));
+    document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('outline', b.dataset.tool !== tool));
     $('#paper').className = 'paper tool-' + tool;
     MV.requestRender();
   };
@@ -198,8 +198,9 @@
     if (msg) { el.textContent = msg; return; }
     const b = st.basemap;
     el.textContent = b
-      ? `${b.features.length.toLocaleString()} features from ${{ omt: 'OpenFreeMap (OpenStreetMap data)', osm: 'OpenStreetMap (Overpass)' }[b.source] || 'GeoJSON'}. Re-fetch after moving to a new area.`
-      : 'No basemap loaded. The route renders on the plain background.';
+      ? `Added from ${{ omt: 'OpenStreetMap', osm: 'OpenStreetMap' }[b.source] || 'your GeoJSON file'}. Moved the map somewhere new? Update them.`
+      : 'Draws the streets, rivers and parks around your route.';
+    if (!fetchCtl) document.querySelectorAll('[data-action="fetch-basemap"]').forEach((btn) => (btn.textContent = b ? 'Update streets' : 'Add streets'));
   }
 
   function viewBBox(padFrac) {
@@ -215,7 +216,6 @@
   async function fetchBasemap(btn) {
     if (fetchCtl) { fetchCtl.abort(); return; } // the button doubles as Cancel while fetching
     fetchCtl = new AbortController();
-    const label = btn.textContent;
     btn.textContent = 'Cancel';
     try {
       const data = await MV.basemap.fetchBasemap(viewBBox(0.1), setBasemapStatus, fetchCtl.signal);
@@ -223,18 +223,17 @@
       st.basemap = data;
       st.style.basemap.show = true;
       const cached = MV.persistBasemap();
-      setBasemapStatus();
-      if (!cached) MV.toast('Basemap loaded (too large to cache — it will need re-fetching after a reload).');
+      if (!cached) MV.toast('Streets added, but too large to keep in this browser. Add them again after a reload.');
       MV.syncAll();
       MV.requestRender();
       MV.commit();
     } catch (err) {
       setBasemapStatus();
-      if (err.name === 'AbortError') MV.toast('Basemap download cancelled.');
-      else MV.toast('Basemap: ' + err.message, 'error');
+      if (err.name === 'AbortError') MV.toast('Streets download cancelled.');
+      else MV.toast('Streets: ' + err.message, 'error');
     } finally {
       fetchCtl = null;
-      btn.textContent = label;
+      setBasemapStatus();
     }
   }
 
@@ -309,7 +308,7 @@
         const scene = MV.exportSVG();
         if (scene.liveText) {
           const fam = scene.family.split(',')[0].replace(/'/g, '');
-          MV.toast(`SVG saved with live text in “${fam}”. It only looks right where that font is installed — load the font file (Labels → Font file) to export outlines.`, 'warn');
+          MV.toast(`SVG saved with live text in “${fam}”. It only looks right where that font is installed — load the font file (Words → More options) to export outlines.`, 'warn');
         }
       } catch (err) {
         MV.toast('SVG export failed: ' + err.message, 'error');
@@ -331,13 +330,9 @@
       setBasemapStatus();
       MV.requestRender();
     },
-    'apply-theme'() {
-      const t = MV.THEMES[$('#theme-select').value];
-      if (!t) return;
-      const page = MV.clone(st.style.page), lang = st.style.labels.lang;
-      st.style = MV.merge(MV.clone(MV.DEFAULT_STYLE), t.style);
-      st.style.page = page;
-      st.style.labels.lang = lang;
+    'apply-theme'(btn) {
+      if (!MV.THEMES[btn.dataset.theme]) return;
+      st.style = MV.themedStyle(btn.dataset.theme);
       MV.syncAll();
       MV.requestRender();
       MV.commit();
@@ -366,7 +361,7 @@
       MV.syncAll();
       MV.requestRender();
       MV.commit();
-      MV.toast('Styles and view reset to defaults. Undo (⌘Z) to go back.');
+      MV.toast('Look and framing reset. Undo (⌘Z) to go back.');
     },
   };
 

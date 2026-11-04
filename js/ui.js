@@ -4,22 +4,32 @@
   const MV = (window.MV = window.MV || {});
 
   const custom = (s) => s.style.page.size === 'Custom';
+  const stops = (s) => s.style.markers.stops;
+  // Field groups, one per [data-fields] box. The first box of each step holds only the
+  // essentials; everything else lives in that step's "More options" drawer.
   const FIELDS = {
-    page: [
-      { k: 'style.page.size', t: 'select', l: 'Page size', o: [...Object.keys(MV.PAGE_SIZES), 'Custom'].map((v) => [v, v === 'Square' ? 'Square 180 mm' : v]) },
-      { k: 'style.page.orientation', t: 'seg', l: 'Orientation', o: [['portrait', 'Portrait'], ['landscape', 'Landscape']], when: (s) => !custom(s) },
+    // step 1: page and route
+    pageSetup: [
+      { k: 'style.page.size', t: 'seg', l: 'Page size', cols: 4, o: [...Object.keys(MV.PAGE_SIZES), 'Custom'].map((v) => [v, v === 'Half Letter' ? '½ Letter' : v]) },
       { k: 'style.page.widthMm', t: 'number', l: 'Width', u: 'mm', min: 20, max: 1200, when: custom },
       { k: 'style.page.heightMm', t: 'number', l: 'Height', u: 'mm', min: 20, max: 1200, when: custom },
-      { k: 'style.page.dpi', t: 'seg', l: 'PNG resolution', o: [[150, '150 dpi'], [300, '300 dpi'], [600, '600 dpi']] },
-      { k: 'style.page.margin', t: 'range', l: 'Margin', min: 0, max: 40, step: 0.5, u: 'mm' },
-      { k: 'style.page.inset', t: 'range', l: 'Map inset', min: 0, max: 30, step: 0.5, u: 'mm', hint: 'Keeps the basemap off the page edge (0 = full bleed).' },
-      { k: 'view.rotation', t: 'range', l: 'Rotation', min: -180, max: 180, step: 1, u: '°', reset: 0 },
+      { k: 'style.page.orientation', t: 'seg', l: 'Orientation', o: [['portrait', 'Portrait'], ['landscape', 'Landscape']], when: (s) => !custom(s) },
     ],
-    line: [
+    stops: [
+      { k: 'style.markers.stops', t: 'check', l: 'Show numbered stops' },
+      { k: 'style.markers.stopNames', t: 'check', l: 'Show stop names', when: stops },
+    ],
+    // step 2: look
+    lookStreets: [
+      { k: 'style.basemap.show', t: 'check', l: 'Show streets', when: (s) => !!s.basemap },
+    ],
+    look: [
       { k: 'style.route.color', t: 'color', l: 'Colour' },
       { k: 'style.route.width', t: 'range', l: 'Weight', min: 0.2, max: 6, step: 0.1, u: 'mm' },
-      { k: 'style.route.opacity', t: 'range', l: 'Opacity', min: 0.1, max: 1, step: 0.05, pct: true },
       { k: 'style.route.dash', t: 'seg', l: 'Line', o: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']] },
+    ],
+    line: [
+      { k: 'style.route.opacity', t: 'range', l: 'Opacity', min: 0.1, max: 1, step: 0.05, pct: true },
       { k: 'style.route.cap', t: 'seg', l: 'Ends', o: [['round', 'Round'], ['square', 'Square'], ['butt', 'Flat']] },
       { k: 'style.route.join', t: 'seg', l: 'Corners', o: [['round', 'Round'], ['miter', 'Sharp'], ['bevel', 'Bevel']] },
       { k: 'style.route.smooth', t: 'check', l: 'Smooth curves' },
@@ -34,43 +44,14 @@
     markers: [
       { k: 'style.markers.start', t: 'seg', l: 'Start', o: [['dot', 'Dot'], ['ring', 'Ring'], ['square', 'Square'], ['none', 'None']] },
       { k: 'style.markers.end', t: 'seg', l: 'Finish', o: [['dot', 'Dot'], ['ring', 'Ring'], ['square', 'Square'], ['none', 'None']] },
-      { k: 'style.markers.size', t: 'range', l: 'Marker size', min: 1, max: 10, step: 0.1, u: 'mm' },
-      { k: 'style.markers.matchRoute', t: 'check', l: 'Markers use route colour' },
+      { k: 'style.markers.size', t: 'range', l: 'Start and finish size', min: 1, max: 10, step: 0.1, u: 'mm' },
+      { k: 'style.markers.matchRoute', t: 'check', l: 'Same colour as the route' },
       { k: 'style.markers.startColor', t: 'color', l: 'Start colour', when: (s) => !s.style.markers.matchRoute },
       { k: 'style.markers.endColor', t: 'color', l: 'Finish colour', when: (s) => !s.style.markers.matchRoute },
-      { k: 'style.markers.stops', t: 'check', l: 'Show numbered stops' },
-      { k: 'style.markers.stopSize', t: 'range', l: 'Stop size', min: 2, max: 10, step: 0.1, u: 'mm', when: (s) => s.style.markers.stops },
-      { k: 'style.markers.stopColor', t: 'color', l: 'Stop colour', when: (s) => s.style.markers.stops },
-      { k: 'style.markers.stopText', t: 'color', l: 'Number colour', when: (s) => s.style.markers.stops },
-      { k: 'style.markers.stopNames', t: 'check', l: 'Show stop names', when: (s) => s.style.markers.stops },
-      { k: 'style.markers.stopNameSize', t: 'range', l: 'Name size', min: 4, max: 14, step: 0.5, u: 'pt', when: (s) => s.style.markers.stops && s.style.markers.stopNames },
-    ],
-    content: [
-      { k: 'content.title', t: 'area', l: 'Title', rows: 2, ph: 'Photowalk #12' },
-      { k: 'content.date', t: 'text', l: 'Date', ph: 'Sat 14 November 2026' },
-      { k: 'content.area', t: 'text', l: 'Area', ph: 'Neighbourhood or city' },
-      { k: 'content.notes', t: 'area', l: 'Notes', rows: 2, ph: 'Meet 10:00 by the fountain' },
-    ],
-    labels: [
-      { k: 'style.labels.show', t: 'check', l: 'Show labels' },
-      { k: 'style.labels.lang', t: 'select', l: 'Map language', o: MV.LANGS, hint: 'Language of the text the app adds: default title, sample place names, decimal separator, data credit, place search results.', after: (lang) => { MV.localizeContent(lang); MV.syncAll(); MV.renderStops(); } },
-      { k: 'style.labels.position', t: 'seg', l: 'Position', cols: 3, o: [['top-left', '↖'], ['top-center', '↑'], ['top-right', '↗'], ['bottom-left', '↙'], ['bottom-center', '↓'], ['bottom-right', '↘']] },
-      { k: 'style.labels.reserve', t: 'check', l: 'Keep route clear of labels' },
-      { k: 'style.labels.showDistance', t: 'check', l: 'Show distance' },
-      { k: 'style.labels.units', t: 'seg', l: 'Units', o: [['km', 'Kilometres'], ['mi', 'Miles']] },
-      { k: 'style.labels.font', t: 'select', l: 'Typeface', o: [['grotesk', 'Grotesk (Helvetica)'], ['geometric', 'Geometric (Futura)'], ['serif', 'Serif (Georgia)'], ['mono', 'Typewriter (Courier)'], ['condensed', 'Condensed (Arial Narrow)'], ['custom', 'Installed font (by name)…'], ['file', 'Font file (see below)']] },
-      { k: 'style.labels.customFont', t: 'text', l: 'Font name', ph: 'e.g. Space Grotesk', hint: 'Exact name of a font installed on this computer. Exported SVGs keep it as live text, so it must also be installed wherever the file is opened — load the font file below instead to get outlines.', when: (s) => s.style.labels.font === 'custom' },
-      { k: 'style.labels.outline', t: 'check', l: 'Convert text to outlines in exports', when: (s) => s.style.labels.font === 'file' },
-      { k: 'style.labels.color', t: 'color', l: 'Text colour' },
-      { k: 'style.labels.titleSize', t: 'range', l: 'Title size', min: 8, max: 72, step: 1, u: 'pt' },
-      { k: 'style.labels.titleWeight', t: 'seg', l: 'Title weight', o: [[300, 'Light'], [400, 'Regular'], [700, 'Bold'], [900, 'Black']] },
-      { k: 'style.labels.allCaps', t: 'check', l: 'All caps title' },
-      { k: 'style.labels.tracking', t: 'range', l: 'Letter spacing', min: -0.05, max: 0.3, step: 0.01, u: 'em' },
-      { k: 'style.labels.metaSize', t: 'range', l: 'Detail size', min: 5, max: 18, step: 0.5, u: 'pt' },
-      { k: 'style.labels.plate', t: 'check', l: 'Backing plate behind text' },
-      { k: 'style.labels.plateMatch', t: 'check', l: 'Plate uses background colour', when: (s) => s.style.labels.plate },
-      { k: 'style.labels.plateColor', t: 'color', l: 'Plate colour', when: (s) => s.style.labels.plate && !s.style.labels.plateMatch },
-      { k: 'style.labels.plateOpacity', t: 'range', l: 'Plate opacity', min: 0.1, max: 1, step: 0.05, pct: true, when: (s) => s.style.labels.plate },
+      { k: 'style.markers.stopSize', t: 'range', l: 'Stop size', min: 2, max: 10, step: 0.1, u: 'mm', when: stops },
+      { k: 'style.markers.stopColor', t: 'color', l: 'Stop colour', when: stops },
+      { k: 'style.markers.stopText', t: 'color', l: 'Number colour', when: stops },
+      { k: 'style.markers.stopNameSize', t: 'range', l: 'Stop name size', min: 4, max: 14, step: 0.5, u: 'pt', when: (s) => stops(s) && s.style.markers.stopNames },
     ],
     background: [
       { k: 'style.background.type', t: 'seg', l: 'Fill', o: [['solid', 'Solid'], ['gradient', 'Gradient'], ['none', 'Transparent']] },
@@ -82,28 +63,66 @@
       { k: 'style.background.patternSpacing', t: 'range', l: 'Spacing', min: 2, max: 20, step: 0.5, u: 'mm', when: (s) => s.style.background.pattern !== 'none' },
     ],
     basemap: [
-      { k: 'style.basemap.show', t: 'check', l: 'Show basemap' },
       { k: 'style.basemap.opacity', t: 'range', l: 'Opacity', min: 0.1, max: 1, step: 0.05, pct: true },
       { k: 'style.basemap.roads', t: 'color', l: 'Streets' },
       { k: 'style.basemap.roadWidth', t: 'range', l: 'Street weight', min: 0.05, max: 1.5, step: 0.05, u: 'mm' },
       { k: 'style.basemap.majorScale', t: 'range', l: 'Main roads', min: 1, max: 4, step: 0.1, u: '×' },
-      { k: 'style.basemap.minor', t: 'check', l: 'Footpaths & service roads' },
+      { k: 'style.basemap.minor', t: 'check', l: 'Footpaths and service roads' },
       { k: 'style.basemap.minorDash', t: 'check', l: 'Dashed footpaths', when: (s) => s.style.basemap.minor },
-      { k: 'style.basemap.rail', t: 'check', l: 'Railways & trams' },
+      { k: 'style.basemap.rail', t: 'check', l: 'Railways and trams' },
       { k: 'style.basemap.railColor', t: 'color', l: 'Rail colour', when: (s) => s.style.basemap.rail },
       { k: 'style.basemap.water', t: 'check', l: 'Water' },
       { k: 'style.basemap.waterColor', t: 'color', l: 'Water colour', when: (s) => s.style.basemap.water },
-      { k: 'style.basemap.parks', t: 'check', l: 'Parks & green space' },
+      { k: 'style.basemap.parks', t: 'check', l: 'Parks and green space' },
       { k: 'style.basemap.parkColor', t: 'color', l: 'Green colour', when: (s) => s.style.basemap.parks },
     ],
     extras: [
-      { k: 'style.extras.border', t: 'check', l: 'Frame border (on the map inset)' },
+      { k: 'style.extras.border', t: 'check', l: 'Frame border' },
       { k: 'style.extras.borderWidth', t: 'range', l: 'Border weight', min: 0.1, max: 3, step: 0.05, u: 'mm', when: (s) => s.style.extras.border },
       { k: 'style.extras.borderColor', t: 'color', l: 'Border colour', when: (s) => s.style.extras.border },
       { k: 'style.extras.northArrow', t: 'check', l: 'North arrow' },
       { k: 'style.extras.scaleBar', t: 'check', l: 'Scale bar' },
-      { k: 'style.extras.color', t: 'color', l: 'Arrow, scale & credit colour' },
+      { k: 'style.extras.color', t: 'color', l: 'Arrow, scale and credit colour' },
       { k: 'style.extras.credit', t: 'check', l: 'Map data credit line', hint: 'OpenStreetMap data is free to print, but must be credited.' },
+    ],
+    // step 3: words
+    words: [
+      { k: 'content.title', t: 'area', l: 'Title', rows: 2, ph: 'Photowalk #12' },
+      { k: 'content.date', t: 'text', l: 'Date', ph: 'Sat 14 November 2026' },
+      { k: 'content.area', t: 'text', l: 'Place', ph: 'Neighbourhood or city' },
+      { k: 'content.notes', t: 'area', l: 'Notes', rows: 2, ph: 'Meet 10:00 by the fountain' },
+      { k: 'style.labels.position', t: 'seg', l: 'Text sits in the', cols: 3, o: [['top-left', 'Top left'], ['top-center', 'Top'], ['top-right', 'Top right'], ['bottom-left', 'Bottom left'], ['bottom-center', 'Bottom'], ['bottom-right', 'Bottom right']] },
+      { k: 'style.labels.font', t: 'select', l: 'Typeface', o: [['grotesk', 'Grotesk (Helvetica)'], ['geometric', 'Geometric (Futura)'], ['serif', 'Serif (Georgia)'], ['mono', 'Typewriter (Courier)'], ['condensed', 'Condensed (Arial Narrow)'], ['custom', 'Installed font (by name)…'], ['file', 'Font file (More options)']] },
+      { k: 'style.labels.customFont', t: 'text', l: 'Font name', ph: 'e.g. Space Grotesk', hint: 'Exact name of a font installed on this computer. Exported SVGs keep it as live text, so it must also be installed wherever the file is opened. Load the font file under More options to get outlines instead.', when: (s) => s.style.labels.font === 'custom' },
+      { k: 'style.labels.showDistance', t: 'check', l: 'Show distance' },
+    ],
+    type: [
+      { k: 'style.labels.show', t: 'check', l: 'Show title block' },
+      { k: 'style.labels.color', t: 'color', l: 'Text colour' },
+      { k: 'style.labels.titleSize', t: 'range', l: 'Title size', min: 8, max: 72, step: 1, u: 'pt' },
+      { k: 'style.labels.titleWeight', t: 'seg', l: 'Title weight', o: [[300, 'Light'], [400, 'Regular'], [700, 'Bold'], [900, 'Black']] },
+      { k: 'style.labels.allCaps', t: 'check', l: 'All caps title' },
+      { k: 'style.labels.tracking', t: 'range', l: 'Letter spacing', min: -0.05, max: 0.3, step: 0.01, u: 'em' },
+      { k: 'style.labels.metaSize', t: 'range', l: 'Detail size', min: 5, max: 18, step: 0.5, u: 'pt' },
+      { k: 'style.labels.reserve', t: 'check', l: 'Keep the route clear of the text' },
+      { k: 'style.labels.plate', t: 'check', l: 'Backing plate behind text' },
+      { k: 'style.labels.plateMatch', t: 'check', l: 'Plate uses background colour', when: (s) => s.style.labels.plate },
+      { k: 'style.labels.plateColor', t: 'color', l: 'Plate colour', when: (s) => s.style.labels.plate && !s.style.labels.plateMatch },
+      { k: 'style.labels.plateOpacity', t: 'range', l: 'Plate opacity', min: 0.1, max: 1, step: 0.05, pct: true, when: (s) => s.style.labels.plate },
+      { k: 'style.labels.outline', t: 'check', l: 'Convert text to outlines in exports', when: (s) => s.style.labels.font === 'file' },
+    ],
+    locale: [
+      { k: 'style.labels.units', t: 'seg', l: 'Distance in', o: [['km', 'Kilometres'], ['mi', 'Miles']] },
+      { k: 'style.labels.lang', t: 'select', l: 'Map language', o: MV.LANGS, hint: 'Language of the text the app adds: default title, sample place names, decimal separator, data credit, place search results.', after: (lang) => { MV.localizeContent(lang); MV.syncAll(); MV.renderStops(); } },
+    ],
+    // step 4: export
+    print: [
+      { k: 'style.page.dpi', t: 'seg', l: 'PNG resolution', o: [[150, '150 dpi'], [300, '300 dpi'], [600, '600 dpi']], tip: 'Pixels per inch of the PNG at its printed size. 150: proofs. 300: standard print. 600: fine line art. SVG exports are not affected.' },
+    ],
+    page: [
+      { k: 'style.page.margin', t: 'range', l: 'Margin', min: 0, max: 40, step: 0.5, u: 'mm' },
+      { k: 'style.page.inset', t: 'range', l: 'Map inset', min: 0, max: 30, step: 0.5, u: 'mm', hint: 'Keeps the streets off the page edge (0 = full bleed).' },
+      { k: 'view.rotation', t: 'range', l: 'Rotation', min: -180, max: 180, step: 1, u: '°', reset: 0 },
     ],
   };
 
@@ -184,13 +203,16 @@
       }
       case 'seg': {
         const btns = f.o.map(([v, l]) => {
-          const b = h('button', { type: 'button', title: String(v) }, l);
+          const b = h('button', { type: 'button', class: 'secondary outline', title: String(v) }, l);
           b.addEventListener('click', () => { set(v, true); sync(); });
           return { v, b };
         });
-        const box = h('div', { class: 'seg', role: 'group', style: f.cols ? `grid-template-columns:repeat(${f.cols},1fr)` : `grid-template-columns:repeat(${btns.length},1fr)` }, btns.map((x) => x.b));
+        // Pico joins role="group" buttons into one row; options that wrap use a plain grid instead
+        const box = f.cols
+          ? h('div', { class: 'seg-grid', style: `grid-template-columns:repeat(${f.cols},1fr)` }, btns.map((x) => x.b))
+          : h('div', { class: 'seg', role: 'group' }, btns.map((x) => x.b));
         row.append(h('span', { class: 'label' }, f.l), box);
-        sync = () => btns.forEach(({ v, b }) => b.classList.toggle('on', v === get()));
+        sync = () => btns.forEach(({ v, b }) => b.classList.toggle('outline', v !== get()));
         break;
       }
       case 'text':
@@ -216,6 +238,7 @@
         break;
       }
     }
+    if (f.tip) row.querySelector('label, .label').append(' ', h('span', { class: 'tip', tabindex: 0, 'data-tip': f.tip, 'aria-label': f.tip }, '?'));
     if (f.hint) row.append(h('div', { class: 'hint' }, f.hint));
     sync();
     bound.push({ f, row, sync });
@@ -239,8 +262,8 @@
       box.append(h('div', { class: 'font-row' },
         h('span', { class: 'font-slot' }, label),
         h('span', { class: 'font-name' + (loaded ? '' : ' muted') }, loaded || 'none'),
-        h('button', { type: 'button', 'data-action': 'load-font', 'data-slot': slot }, loaded ? 'Replace…' : 'Load…'),
-        loaded ? h('button', { type: 'button', class: 'icon', title: 'Remove font', 'data-action': 'remove-font', 'data-slot': slot }, '×') : null));
+        h('button', { type: 'button', class: 'secondary outline', 'data-action': 'load-font', 'data-slot': slot }, loaded ? 'Replace…' : 'Load…'),
+        loaded ? h('button', { type: 'button', class: 'secondary outline icon', title: 'Remove font', 'data-action': 'remove-font', 'data-slot': slot }, '×') : null));
     });
     const st = MV.state;
     const status = $('#font-status');
@@ -261,7 +284,7 @@
     const box = $('#stops-list'), st = MV.state;
     box.innerHTML = '';
     if (!st.stops.length) {
-      box.append(h('p', { class: 'hint' }, 'No stops yet. Use the Stops tool (S) to click them onto the page.'));
+      box.append(h('p', { class: 'hint' }, 'No stops yet. Pick Stops above the map and click to add them.'));
       return;
     }
     st.stops.forEach((s, i) => {
@@ -277,8 +300,8 @@
       box.append(h('div', { class: 'stop-row' },
         h('span', { class: 'stop-num' }, String(i + 1)),
         input,
-        h('button', { type: 'button', class: 'icon', title: 'Move up', onclick: () => move(-1), disabled: i === 0 }, '↑'),
-        h('button', { type: 'button', class: 'icon', title: 'Remove stop', onclick: () => { st.stops.splice(i, 1); renderStops(); MV.requestRender(); MV.commit(); } }, '×')));
+        h('button', { type: 'button', class: 'secondary outline icon', title: 'Move up', onclick: () => move(-1), disabled: i === 0 }, '↑'),
+        h('button', { type: 'button', class: 'secondary outline icon', title: 'Remove stop', onclick: () => { st.stops.splice(i, 1); renderStops(); MV.requestRender(); MV.commit(); } }, '×')));
     });
   }
   MV.renderStops = renderStops;
@@ -293,23 +316,110 @@
     );
   }
 
+  // --- steps: Start → Look → Words → Export ---
+  const STEPS = ['route', 'look', 'words', 'print'];
+  const STEP_NAMES = { route: 'Start', look: 'Look', words: 'Words', print: 'Export' };
+  const STEP_KEY = 'mapvizard:step';
+  let step = 'route';
+
+  MV.showStep = function (id) {
+    if (!STEPS.includes(id)) return;
+    step = id;
+    document.querySelectorAll('[data-step-panel]').forEach((p) => (p.hidden = p.dataset.stepPanel !== id));
+    document.querySelectorAll('.steps [data-step]').forEach((b) => {
+      const on = b.dataset.step === id;
+      b.setAttribute('aria-selected', on);
+      b.tabIndex = on ? 0 : -1;
+    });
+    const i = STEPS.indexOf(id), next = STEPS[i + 1];
+    $('[data-step-go="-1"]').disabled = i === 0;
+    $('#step-next').hidden = !next;
+    if (next) $('#step-next').textContent = 'Next: ' + STEP_NAMES[next];
+    $('.sidebar').scrollTop = 0;
+    try { localStorage.setItem(STEP_KEY, id); } catch (e) { /* ignore */ }
+    if (id === 'look') renderThemes();
+  };
+
+  // --- house styles, shown as thumbnails of the current map ---
+  MV.themedStyle = function (id) {
+    const st = MV.state, t = MV.THEMES[id];
+    const style = MV.merge(MV.clone(MV.DEFAULT_STYLE), t.style);
+    style.page = MV.clone(st.style.page);
+    style.labels.lang = st.style.labels.lang;
+    return style;
+  };
+
+  let thumbSig = '', thumbTimer;
+  function renderThemes() {
+    const box = $('#themes'), st = MV.state;
+    if (!box.children.length) {
+      Object.entries(MV.THEMES).forEach(([id, t]) => box.append(
+        h('button', { type: 'button', role: 'radio', class: 'theme', 'data-action': 'apply-theme', 'data-theme': id },
+          h('span', { class: 'theme-thumb' }, h('img', { alt: '' })),
+          h('span', { class: 'theme-name' }, t.label))));
+    }
+    const current = JSON.stringify(st.style);
+    box.querySelectorAll('.theme').forEach((b) => b.setAttribute('aria-checked', JSON.stringify(MV.themedStyle(b.dataset.theme)) === current));
+
+    // thumbnails only depend on the route, framing, page and text — not on the current look
+    const v = st.view, b = st.basemap;
+    const sig = JSON.stringify([st.route.length, st.route[0], st.route[st.route.length - 1], st.stops, b && b.features.length, b && b.bbox,
+      MV.pageDims(st.style), st.style.page.margin, v.lat, v.lon, v.zoom, v.rotation, v.auto, st.content, st.style.labels.lang]);
+    if (sig === thumbSig) return;
+    thumbSig = sig;
+    box.querySelectorAll('.theme').forEach((btn) => {
+      const scene = MV.render({ ...st, view: { ...st.view }, style: MV.themedStyle(btn.dataset.theme) });
+      const svg = MV.svgDocument(scene, { title: MV.THEMES[btn.dataset.theme].label, lang: st.style.labels.lang });
+      const img = btn.querySelector('img');
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      btn.querySelector('.theme-thumb').style.aspectRatio = `${scene.W} / ${scene.H}`;
+    });
+  }
+  function themesSoon() {
+    if (step !== 'look') return;
+    clearTimeout(thumbTimer);
+    thumbTimer = setTimeout(renderThemes, 250);
+  }
+
   MV.initUI = function () {
     document.querySelectorAll('[data-fields]').forEach((box) => {
       (FIELDS[box.dataset.fields] || []).forEach((f) => box.append(buildField(f)));
     });
-    const sel = $('#theme-select');
-    Object.entries(MV.THEMES).forEach(([id, t]) => sel.append(h('option', { value: id }, t.label)));
     MV.syncAll();
     renderStops();
     MV.on('restore', () => { MV.syncAll(); renderStops(); MV.requestRender(); });
     MV.on('stops', renderStops);
-    MV.on('rendered', renderRouteInfo);
+    MV.on('rendered', (scene) => {
+      renderRouteInfo(scene);
+      $('.sidebar').classList.toggle('has-route', MV.state.route.length > 0 || MV.state.stops.length > 0);
+      themesSoon();
+    });
     MV.on('fonts', renderFonts);
     renderFonts();
 
-    // remember which panels are open
-    document.querySelectorAll('details[data-panel]').forEach((d) => {
-      const key = 'mapvizard:panel:' + d.dataset.panel;
+    document.addEventListener('click', (e) => {
+      const tab = e.target.closest('.steps [data-step]');
+      const to = e.target.closest('[data-step-to]');
+      const go = e.target.closest('[data-step-go]');
+      if (tab) MV.showStep(tab.dataset.step);
+      else if (to) MV.showStep(to.dataset.stepTo);
+      else if (go) MV.showStep(STEPS[STEPS.indexOf(step) + +go.dataset.stepGo]);
+    });
+    // arrow keys move between step tabs
+    $('.steps').addEventListener('keydown', (e) => {
+      const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      MV.showStep(STEPS[(STEPS.indexOf(step) + d + STEPS.length) % STEPS.length]);
+      $(`.steps [data-step="${step}"]`).focus();
+    });
+    let saved = null;
+    try { saved = localStorage.getItem(STEP_KEY); } catch (e) { /* ignore */ }
+    MV.showStep(MV.state.route.length && saved ? saved : 'route');
+
+    // remember which drawers are open
+    document.querySelectorAll('details[data-more], details.group').forEach((d) => {
+      const key = 'mapvizard:more:' + (d.dataset.more || d.querySelector('summary').textContent);
       try {
         const v = localStorage.getItem(key);
         if (v !== null) d.open = v === '1';

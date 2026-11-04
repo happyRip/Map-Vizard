@@ -2,7 +2,7 @@
 
 A small static web app that turns a walking route (GPX, KML, JSON or hand-drawn) into a clean, print-ready map for a zine. It exports SVG (sized in millimetres) and PNG (with DPI metadata).
 
-Everything runs in the browser. There's no backend, no build step and no accounts.
+Everything runs in the browser. There's no backend, no build step and no accounts. The interface uses [Pico CSS](https://picocss.com) (MIT), vendored at `css/vendor/pico.min.css`.
 
 ## Run it
 
@@ -12,10 +12,14 @@ You can also serve the folder with any static server, e.g. `npx serve .`, and de
 
 ## Workflow
 
-1. **Import** by dropping a `.gpx`, `.kml`, `.json` or `.geojson` file anywhere on the window, or click **Load sample**. GPX waypoints and KML/GeoJSON points become numbered **stops**.
-2. **Frame** it. Pick the page size (A6–A3, Half Letter, Letter, Square, Custom), margin and rotation. The route auto-fits the page and keeps clear of the title block. Panning or zooming switches auto-fit off; press **Fit** (F) to turn it back on.
-3. **Style** the route line, markers, labels, background and basemap. The preview updates live.
-4. **Export SVG** or **Export PNG** from the toolbar.
+The sidebar walks you through four steps. Each shows only what a first map needs; everything else sits under **More options** at the bottom of the step.
+
+1. **Start.** Set the page size and orientation first, since they shape the layout. Then drop a `.gpx`, `.kml`, `.json` or `.geojson` file anywhere on the window, or click **Try the sample walk**. GPX waypoints and KML/GeoJSON points become numbered **stops**, which you can rename here.
+2. **Look.** Pick a house style from thumbnails of your own map, add streets, and set the route colour and weight.
+3. **Words.** Title, date, place, notes, where the text sits and the typeface.
+4. **Export.** Set the PNG resolution, then **Export PNG** or **Export SVG**.
+
+The route auto-fits the page and keeps clear of the title block. Panning or zooming switches auto-fit off; press **Fit** (F) to turn it back on.
 
 ### Tools (toolbar)
 
@@ -26,15 +30,15 @@ You can also serve the folder with any static server, e.g. `npx serve .`, and de
 | Draw | D | Click to append points (drag still pans). Backspace removes the last point |
 | Stops | S | Click to add a numbered stop, drag to move, Alt-click to delete. Name and reorder stops in the sidebar |
 
-Undo/redo: ⌘Z / ⇧⌘Z (Ctrl on Windows/Linux). **Reset styles** restores the defaults.
+Undo/redo: ⌘Z / ⇧⌘Z (Ctrl on Windows/Linux). **Reset look** (Look → More options → Save this look) restores the defaults.
 
-Raw GPS tracks have thousands of points. Run **Simplify points** in the Route panel before editing by hand. The **Simplify** slider in *Route line* smooths jitter at render time without changing your data.
+Raw GPS tracks have thousands of points. Run **Simplify points** (Start → More options) before editing by hand. The **Simplify** slider (Look → More options → Line) smooths jitter at render time without changing your data.
 
 ## Fonts and outlined text (important for print)
 
 Live SVG text stores only the font's *name*, so it changes typeface on any computer that lacks that font. To avoid that:
 
-- In **Labels → Font file**, load your zine's font (TTF, OTF or WOFF; WOFF2 isn't supported). You can load a regular and a bold cut. The typeface switches to *Font file*.
+- In **Words → More options → Your own font file**, load your zine's font (TTF, OTF or WOFF; WOFF2 isn't supported). You can load a regular and a bold cut. The typeface switches to *Font file*.
 - With **Convert text to outlines in exports** on (the default), all SVG text (title, date, notes, stop numbers and names, scale bar, credit) is exported as vector paths. The SVG then looks identical everywhere, with no font install needed.
 - PNG exports always use the loaded font file.
 - If you export an SVG with live text, the app warns you which font has to be installed.
@@ -43,7 +47,7 @@ Font files are cached in the browser. They're also embedded in saved presets so 
 
 ## Map language
 
-**Labels → Map language** (English or Polski) sets the language of the text the app itself puts on the map: the default title, the sample's place names, the decimal separator (`3,9 km`), the data credit (`© autorzy OpenStreetMap`) and place-search results. Text you typed or imported is never changed. The first time the app opens, the language follows your browser. The sidebar itself stays in English.
+**Words → More options → Language and units** (English or Polski) sets the language of the text the app itself puts on the map: the default title, the sample's place names, the decimal separator (`3,9 km`), the data credit (`© autorzy OpenStreetMap`) and place-search results. Text you typed or imported is never changed. The first time the app opens, the language follows your browser. The sidebar itself stays in English.
 
 ## Output for layout apps
 
@@ -52,11 +56,11 @@ Font files are cached in the browser. They're also embedded in saved presets so 
 
 ## Basemap
 
-- **Fetch streets for this view** downloads streets, paths, rail, water and parks for the visible area. The data is OpenStreetMap, taken from [OpenFreeMap](https://openfreemap.org) vector tiles: free, no API key, served from a CDN, usually ready in a second or two. It's drawn as thin vector lines with no labels, and is clipped to the page (or to the *Map inset*).
+- **Add streets** (Look step) downloads streets, paths, rail, water and parks for the visible area. The data is OpenStreetMap, taken from [OpenFreeMap](https://openfreemap.org) vector tiles: free, no API key, served from a CDN, usually ready in a second or two. It's drawn as thin vector lines with no labels, and is clipped to the page (or to the *Map inset*).
 - If the tile server is down, the app falls back to the public Overpass API. Those servers are often overloaded, so the app tries several, keeps the first to answer and gives up after 90 s. While a download runs, the button turns into **Cancel**.
-- **Import GeoJSON** lets you use your own shapes offline. OSM-style tags (`highway`, `waterway`, `natural`, `leisure`…) set the styling. Unknown lines draw as streets and unknown polygons as green space.
+- **Use my own GeoJSON** (Look → More options → Streets) lets you use your own shapes offline. OSM-style tags (`highway`, `waterway`, `natural`, `leisure`…) set the styling. Unknown lines draw as streets and unknown polygons as green space.
 - OSM data is free to print but must be credited. The *Map data credit line* option (on by default) prints the right credit in the bottom margin, e.g. `© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors`.
-- Place search ("Draw from scratch") uses OpenStreetMap Nominatim.
+- Place search (Start step) uses OpenStreetMap Nominatim.
 
 ## House style and presets
 
